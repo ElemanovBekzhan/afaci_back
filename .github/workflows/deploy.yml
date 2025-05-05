@@ -28,13 +28,6 @@ jobs:
     - name: Build with Maven
       run: mvn clean install -DskipTests  # Здесь мы пропускаем тесты, чтобы ускорить сборку
 
-
-    - name: Add SSH key to known hosts
-      run: |
-        mkdir -p $HOME/.ssh
-        ssh-keyscan -H ${{ secrets.SERVER_IP }} >> $HOME/.ssh/known_hosts
-        chmod 700 $HOME/.ssh
-        chmod 644 $HOME/.ssh/known_hosts
     # Отправить файл JAR на сервер через SSH
     - name: Deploy to Server
       uses: appleboy/ssh-action@v0.1.5
@@ -46,10 +39,6 @@ jobs:
         script: |
           cd /home/bekzhan/backend
           rm -f Affaci-0.0.1-SNAPSHOT.jar
-          scp -v -o StrictHostKeyChecking=no target/Affaci-0.0.1-SNAPSHOT.jar root@${{ secrets.SERVER_IP }}:/home/bekzhan/backend/
-          if [ $? -ne 0 ]; then
-            echo "SCP failed"
-            exit 1
-          fi
+          scp -v target/Affaci-0.0.1-SNAPSHOT.jar root@${{ secrets.SERVER_IP }}:/home/bekzhan/backend/
           sudo systemctl restart backend.service
 
