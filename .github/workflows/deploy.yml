@@ -30,8 +30,11 @@ jobs:
 
 
     - name: Add SSH key to known hosts
-      run:
-        ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+      run: |
+        mkdir -p $HOME/.ssh
+        ssh-keyscan -H ${{ secrets.SERVER_IP }} >> $HOME/.ssh/known_hosts
+        chmod 700 $HOME/.ssh
+        chmod 644 $HOME/.ssh/known_hosts
     # Отправить файл JAR на сервер через SSH
     - name: Deploy to Server
       uses: appleboy/ssh-action@v0.1.5
