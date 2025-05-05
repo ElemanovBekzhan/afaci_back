@@ -27,15 +27,6 @@ jobs:
     # Собрать проект с помощью Maven
     - name: Build with Maven
       run: mvn clean install -DskipTests  # Здесь мы пропускаем тесты, чтобы ускорить сборку
-
-    - name: Set up SSH key
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
-        eval $(ssh-agent -s)
-        ssh-add ~/.ssh/id_rsa
     
     # Отправить файл JAR на сервер через SSH
     - name: Deploy to Server
