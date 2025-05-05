@@ -47,6 +47,5 @@ jobs:
           cd /home/bekzhan/backend
           rm -f Affaci-0.0.1-SNAPSHOT.jar
           scp -o StrictHostKeyChecking=no target/Affaci-0.0.1-SNAPSHOT.jar bekzhan@${{ secrets.SERVER_IP }}:/home/bekzhan/backend/
-          echo "${{ secrets.SUDO_PASSWORD }}"
-          sudo systemctl restart myapp.service
+          echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S systemctl restart myapp.service
 
