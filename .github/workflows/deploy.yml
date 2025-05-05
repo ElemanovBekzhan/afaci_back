@@ -39,6 +39,6 @@ jobs:
         script: |
           cd /home/bekzhan/backend
           rm -f Affaci-0.0.1-SNAPSHOT.jar
-          scp target/Affaci-0.0.1-SNAPSHOT.jar bekzhan@${{ secrets.SERVER_IP }}:/home/bekzhan/backend/
+          scp -o StrictHostKeyChecking=no target/Affaci-0.0.1-SNAPSHOT.jar bekzhan@${{ secrets.SERVER_IP }}:/home/bekzhan/backend/
           sudo systemctl restart myapp.service
 
