@@ -28,6 +28,11 @@ jobs:
     - name: Build with Maven
       run: mvn clean install -DskipTests  # Здесь мы пропускаем тесты, чтобы ускорить сборку
 
+
+    - name: Add SSH key to known hosts
+      run:
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
     # Отправить файл JAR на сервер через SSH
     - name: Deploy to Server
       uses: appleboy/ssh-action@v0.1.5
