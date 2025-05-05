@@ -31,7 +31,6 @@ jobs:
 
     - name: Add SSH key to known hosts
       run:
-        mkdir -p ~/.ssh
         ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
     # Отправить файл JAR на сервер через SSH
     - name: Deploy to Server
