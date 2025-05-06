@@ -36,7 +36,7 @@ public class ProductsController {
     @GetMapping
     public ResponseEntity<Page<ProductsDTO>> getProducts(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "10") int size,
             @RequestParam(required=false)      String search,
             @RequestParam(required=false)      String category,
             @RequestParam(required=false)      String region
