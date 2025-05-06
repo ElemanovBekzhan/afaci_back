@@ -277,6 +277,8 @@ public class ExcelImportService {
     private static final int MIN_END_COL    = 28; // AC
 
 
+
+    //Импорт национального продукта
     @Transactional
     public void importExcelFinal(MultipartFile file) throws Exception {
         try(InputStream is = file.getInputStream();
@@ -327,7 +329,7 @@ public class ExcelImportService {
 
 
                     //Химический состав
-                    for(int i = 0; i < minNames.size(); i++){
+                    for(int i = 0; i < chemNames.size(); i++){
                         Cell cell = row.getCell(CHEM_START_COL + i);
                         if(cell != null && cell.getCellType() == CellType.NUMERIC){
                             Chemical_composition chem = new Chemical_composition();
@@ -336,7 +338,6 @@ public class ExcelImportService {
                             chem.setQuantity(cell.getNumericCellValue());
                             chem.setUnit(Unit.valueOf(chemUnits.get(i)));
                             product.getChemicalCompositions().add(chem);
-
                         }
                     }
 
