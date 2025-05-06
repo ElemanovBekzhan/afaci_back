@@ -35,7 +35,21 @@ jobs:
 
     - name: Verify JAR
       run: ls -l target/Affaci-0.0.1-SNAPSHOT.jar
-    
+
+
+    - name: Prepare SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+
+        ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+        
+        eval "$(ssh-agent -s)"
+        ssh-add ~/.ssh/id_rsa
+
+
+        
     # Отправить файл JAR на сервер через SSH
     - name: Deploy to Server
       uses: appleboy/ssh-action@v0.1.5
