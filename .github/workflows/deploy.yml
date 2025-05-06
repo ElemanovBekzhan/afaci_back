@@ -39,6 +39,6 @@ jobs:
         script: |
           cd /home/bekzhan/backend
           rm -f Affaci-0.0.1-SNAPSHOT.jar
-          scp -v /home/runner/.m2/repository/org/example/Affaci/0.0.1-SNAPSHOT/Affaci-0.0.1-SNAPSHOT.jar root@${{ secrets.SERVER_IP }} : /home/bekzhan/backend/
+          scp -v /home/runner/.m2/repository/org/example/Affaci/0.0.1-SNAPSHOT/Affaci-0.0.1-SNAPSHOT.jar root@${{ secrets.SERVER_IP }}:/home/bekzhan/backend/
           sudo systemctl restart backend.service
 
