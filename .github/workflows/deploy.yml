@@ -26,7 +26,15 @@ jobs:
 
     # Собрать проект с помощью Maven
     - name: Build with Maven
-      run: mvn clean install -DskipTests  # Здесь мы пропускаем тесты, чтобы ускорить сборку
+      run: mvn -B clean package -DskipTests
+
+    - name: Add host to known_hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+
+    - name: Verify JAR
+      run: ls -l target/Affaci-0.0.1-SNAPSHOT.jar
     
     # Отправить файл JAR на сервер через SSH
     - name: Deploy to Server
@@ -39,6 +47,6 @@ jobs:
         script: |
           cd /home/bekzhan/backend
           rm -f Affaci-0.0.1-SNAPSHOT.jar
-          scp -v /home/runner/.m2/repository/org/example/Affaci/0.0.1-SNAPSHOT/Affaci-0.0.1-SNAPSHOT.jar root@${{ secrets.SERVER_IP }}:/home/bekzhan/backend/
+          scp -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null target/Affaci-0.0.1-SNAPSHOT.jar root@${{ secrets.SERVER_IP }}:/home/bekzhan/backend/
           sudo systemctl restart backend.service
 
