@@ -1,66 +1,57 @@
-name: Java CI/CD Pipeline
+name: Java CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
-    # Checkout репозиторий
+    # 1. исходники
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
-    # Установка JDK 17 (или другой версии)
-    - name: Set up JDK 17
-      uses: actions/setup-java@v2
+    # 2. JDK
+    - name: Set up Temurin 17
+      uses: actions/setup-java@v3
       with:
-        java-version: '17'
-        distribution: 'temurin'
+        distribution: temurin
+        java-version: 17
 
-    # Собрать проект с помощью Maven
+    # 3. сборка JAR‑файла
     - name: Build with Maven
       run: mvn -B clean package -DskipTests
 
-    - name: Add host to known_hosts
-      run: |
-        mkdir -p ~/.ssh
-        ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
-
-    - name: Verify JAR
-      run: ls -l target/Affaci-0.0.1-SNAPSHOT.jar
-
-
+    # 4. подготовка SSH‑окружения
     - name: Prepare SSH
       run: |
         mkdir -p ~/.ssh
         echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
 
+        # чтобы SSH не задавал вопросов о ключе хоста
         ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
-        
+
         eval "$(ssh-agent -s)"
         ssh-add ~/.ssh/id_rsa
 
+    # 5. копируем JAR
+    - name: Copy JAR to server
+      run: |
+        JAR=target/Affaci-0.0.1-SNAPSHOT.jar
+        ls -l "$JAR"                          # убедимся, что файл есть
+        scp -v -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                "$JAR" ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:/home/bekzhan/backend/
 
-        
-    # Отправить файл JAR на сервер через SSH
-    - name: Deploy to Server
-      uses: appleboy/ssh-action@v0.1.5
-      with:
-        host: ${{ secrets.SERVER_IP }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SERVER_SSH_KEY }}
-        port: 22
-        script: |
-          cd /home/bekzhan/backend
-          rm -f Affaci-0.0.1-SNAPSHOT.jar
-          scp -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null target/Affaci-0.0.1-SNAPSHOT.jar root@${{ secrets.SERVER_IP }}:/home/bekzhan/backend/
-          sudo systemctl restart backend.service
-
+    # 6. перезапускаем сервис
+    - name: Restart backend.service
+      run: |
+        ssh -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
+            "sudo systemctl restart backend.service && systemctl status --no-pager backend.service"
