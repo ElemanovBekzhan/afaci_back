@@ -1,11 +1,15 @@
 package org.example.affaci.Service;
 
 
+import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.example.affaci.Models.Entity.*;
+import org.example.affaci.Models.Enum.Language;
 import org.example.affaci.Models.Enum.Mineral;
 import org.example.affaci.Models.Enum.Unit;
 import org.example.affaci.Repo.CategoriesRepository;
+import org.example.affaci.Repo.ProductTranslateRepo;
 import org.example.affaci.Repo.ProductsRepository;
 import org.example.affaci.Repo.RegionsRepository;
 import org.springframework.stereotype.Service;
@@ -13,22 +17,19 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.FileInputStream;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.io.InputStream;
+import java.util.*;
 
 @Service
+@RequiredArgsConstructor
 public class ExcelImportService {
 
     private final ProductsRepository productsRepository;
     private final RegionsRepository regionsRepository;
     private final CategoriesRepository categoriesRepository;
+    private final ProductTranslateRepo productTranslateRepo;
 
-    public ExcelImportService(ProductsRepository productsRepository, RegionsRepository regionsRepository, CategoriesRepository categoriesRepository) {
-        this.productsRepository = productsRepository;
-        this.regionsRepository = regionsRepository;
-        this.categoriesRepository = categoriesRepository;
-    }
+
 
 
     @Transactional
@@ -40,11 +41,13 @@ public class ExcelImportService {
                 Sheet sheet = workbook.getSheetAt(i);
                 String regionName = sheet.getSheetName();
 
-                Regions region = regionsRepository.findByName(regionName);
-                if (region == null) {
+                Regions region =
+                        regionsRepository.findByNameIgnoreCase(regionName).orElseThrow(()-> new IllegalArgumentException(
+                                "Региона не найден" + regionName));
+                /*if (region == null) {
                     System.out.println("Region " + regionName + " not found");
                     continue;
-                }
+                }*/
 
                 Iterator<Row> rowIterator = sheet.iterator();
                 if(!rowIterator.hasNext()) {
@@ -243,6 +246,9 @@ public class ExcelImportService {
     }
 
 
+
+
+
     private Double[] parseQuantityAndError(String cellValue) {
         String numericStr = cellValue.replace(",", ".").trim();
         Double quantity = null;
@@ -259,5 +265,142 @@ public class ExcelImportService {
             System.out.println("Ошибка преобразования числа: " + cellValue);
         }
         return new Double[]{quantity, error};
+    }
+
+
+
+
+    private static final int HEADER_ROW_COUNT = 6;
+    private static final int CHEM_START_COL = 4; // E
+    private static final int CHEM_END_COL   = 9; // J
+    private static final int MIN_START_COL  = 10; // K
+    private static final int MIN_END_COL    = 28; // AC
+
+
+    @Transactional
+    public void importExcelFinal(MultipartFile file) throws Exception {
+        try(InputStream is = file.getInputStream();
+            Workbook wb = new XSSFWorkbook(is);){
+
+
+            //Считываем загаловки химии/минералов ровно один раз (из первого листа)
+            Sheet firstSheet = wb.getSheetAt(0);
+            Row nameRow = firstSheet.getRow(2);
+            Row unitRow = firstSheet.getRow(3);
+            List<String> chemNames = readRowCells(nameRow, CHEM_START_COL, CHEM_END_COL);
+            List<String> chemUnits = readRowCells(unitRow, CHEM_START_COL, CHEM_END_COL);
+            List<String> minNames  = readRowCells(nameRow, MIN_START_COL, MIN_END_COL);
+            List<String> minUnits  = readRowCells(unitRow, MIN_START_COL, MIN_END_COL);
+
+
+            //Перебираем все листы - каждый лист соответствует новому региону
+            for(Sheet sheet : wb){
+                String sheetName = sheet.getSheetName().trim();
+                Regions region =
+                        regionsRepository.findByNameIgnoreCase(sheetName).orElseThrow(() -> new IllegalArgumentException(
+                                "Региона не найден" + sheetName));
+                /*if (region == null) {
+                    System.out.println("Region " + sheetName + " not found");
+                    continue;
+                }*/
+                //Обход строк с данными начиная с 7-й
+                for(int r = HEADER_ROW_COUNT; r<= sheet.getLastRowNum(); r++){
+                    Row row = sheet.getRow(r);
+                    if(row == null || row.getCell(2) == null) continue;
+
+                    // --- категория точно так же ищем через categoryRepository ---
+                    String excelCat = row.getCell(1).getStringCellValue().trim();
+                    String dbCatName = mapCategoryName(excelCat);
+                    Categories categories =
+                            categoriesRepository.findByNameAndRegion(dbCatName, region).orElseThrow(() -> new IllegalArgumentException("Категория не найдена " + dbCatName + " Для региона " + region.getName()));
+                    /*if(categories == null){
+                        System.out.println("Category " + dbCatName + " not found");
+                        continue;
+                    }*/
+
+                    // --- создаём продукт и устанавливаем регион из имени листа ---
+                    Products product = new Products();
+                    product.setName(row.getCell(2).getStringCellValue().trim());
+                    product.setCategories(categories);
+                    product.setRegion(region);
+                    product.setNational(true);
+
+
+                    //Химический состав
+                    for(int i = 0; i < minNames.size(); i++){
+                        Cell cell = row.getCell(CHEM_START_COL + i);
+                        if(cell != null && cell.getCellType() == CellType.NUMERIC){
+                            Chemical_composition chem = new Chemical_composition();
+                            chem.setProduct(product);
+                            chem.setCompound_name(chemNames.get(i));
+                            chem.setQuantity(cell.getNumericCellValue());
+                            chem.setUnit(Unit.valueOf(chemUnits.get(i)));
+                            product.getChemicalCompositions().add(chem);
+
+                        }
+                    }
+
+                    //---------Минеральный состав ------
+                    for(int i = 0; i < minNames.size(); i++){
+                        Cell cell = row.getCell(MIN_START_COL + i);
+                        if(cell != null && cell.getCellType() == CellType.NUMERIC){
+                            String nameMin = minNames.get(i);
+                            Mineral enumMin = findMineralByName(nameMin);
+
+                            Mineral_composition mineral = new Mineral_composition();
+                            mineral.setProduct(product);
+                            mineral.setMineral_name(enumMin);
+                            mineral.setQuantity(cell.getNumericCellValue());
+                            mineral.setUnit(Unit.valueOf(minUnits.get(i)));
+                            product.getMineralCompositions().add(mineral);
+                        }
+                    }
+
+                    //-----Сохраняем продукт и перевод
+
+                    productsRepository.save(product);
+
+                    String kgName = row.getCell(3).getStringCellValue().trim();
+                    Products_translate tr = new Products_translate();
+                    tr.setProducts(product);
+                    tr.setLanguage(Language.EN);
+                    tr.setProduct_name(kgName);
+                    productTranslateRepo.save(tr);
+                }
+            }
+        }
+
+    }
+
+    // Вспомогательный метод для считывания строк ячеек в List<String>
+    private List<String> readRowCells(Row row, int startCol, int endCol) {
+        List<String> result = new ArrayList<>();
+        for (int c = startCol; c <= endCol; c++) {
+            Cell cell = row.getCell(c);
+            result.add(cell == null
+                    ? ""
+                    : cell.getStringCellValue().trim());
+        }
+        return result;
+    }
+    private String mapCategoryName(String excel) {
+        switch (excel) {
+            case "Мясо и мясные продукты":   return "Мясной";
+            case "Крахмалосодержащие продукты": return "Крахмалосодержащие";
+            case "Ореховые":                   return "Орехи";
+            case "Масло и жировые продукт":    return "Масло";
+            case "Зерно и Зерновые продукты":  return "Зерновые";
+            case "Молоко и молочные продукты": return "Молочный";
+            case "Сахаросодержащий продукт":  return "Сахаросодержащий";
+            case "Масло и жировые продукты":  return "Масло";
+            default: return excel;
+        }
+    }
+
+    private Mineral findMineralByName(String name){
+        return Arrays.stream(Mineral.values())
+                .filter(m -> m.getName().equalsIgnoreCase(name.trim()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Минерал не найден в Enum: " + name));
     }
 }

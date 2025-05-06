@@ -20,7 +20,7 @@ public class Categories {
     @GeneratedValue(strategy = GenerationType.UUID)
     UUID id;
 
-    String name_of_category;        //Наименование категории Мясные, (Молочные, Хлебобулочные и т.д.)
+    String name;        //Наименование категории Мясные, (Молочные, Хлебобулочные и т.д.)
 
     @ManyToOne
     @JoinColumn(name = "regions_id")

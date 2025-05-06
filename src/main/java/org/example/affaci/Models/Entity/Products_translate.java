@@ -29,6 +29,5 @@ public class Products_translate {
     Language language;
     @Column(nullable = false)
     String product_name;
-    @Column(nullable = false)
     String description;
 }

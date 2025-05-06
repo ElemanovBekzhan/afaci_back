@@ -2,9 +2,10 @@ package org.example.affaci.Models.Enum;
 
 public enum Unit {
     g("Грамм"),
-    mg("Милиграмм"),
+    mg("Миллиграмм"),
     µg("Микрограмм"),
-    IU("Международная единица");
+    IU("Международная единица"),
+    kcal("Ккал");
 
 
 
