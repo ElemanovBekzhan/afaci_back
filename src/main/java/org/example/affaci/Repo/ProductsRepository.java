@@ -43,6 +43,8 @@ public interface ProductsRepository
 
     List<Products> findAllByNationalIsTrue();
 
+    //Количество национальных блюд
+    long countByNationalTrue();
 
 
 }
