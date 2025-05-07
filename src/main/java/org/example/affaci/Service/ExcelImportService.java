@@ -1,7 +1,9 @@
 package org.example.affaci.Service;
 
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.example.affaci.Models.Entity.*;
@@ -20,6 +22,8 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.*;
 
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ExcelImportService {
@@ -33,21 +37,15 @@ public class ExcelImportService {
 
 
     @Transactional
-    public void importExcel(String filePath) {
-        try (FileInputStream fis = new FileInputStream(filePath);
+    public void importExcel(MultipartFile file) {
+        try (InputStream fis = file.getInputStream();
              Workbook workbook = WorkbookFactory.create(fis)) {
-
-            for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
-                Sheet sheet = workbook.getSheetAt(i);
+        log.info("Начинаем импорт файла: {}", file.getOriginalFilename());
+            for (Sheet sheet : workbook) {
                 String regionName = sheet.getSheetName();
-
                 Regions region =
-                        regionsRepository.findByNameIgnoreCase(regionName).orElseThrow(()-> new IllegalArgumentException(
-                                "Региона не найден" + regionName));
-                /*if (region == null) {
-                    System.out.println("Region " + regionName + " not found");
-                    continue;
-                }*/
+                        regionsRepository.findByNameIgnoreCase(regionName).orElseThrow(()-> new EntityNotFoundException(
+                                "Регион не найден" + regionName));
 
                 Iterator<Row> rowIterator = sheet.iterator();
                 if(!rowIterator.hasNext()) {
@@ -75,12 +73,13 @@ public class ExcelImportService {
                         continue;
                     }
 
-                    Categories categories = categoriesRepository.findByName(categoryName);
-                    if (categories == null) {
-                        System.out.println("Категория \"" + categoryName + "\" не найдена в БД. Пропускаем продукт.");
+                    Optional<Categories> catOpt = categoriesRepository.findByNameAndRegion(categoryName, region);
+                    if (catOpt.isEmpty()) {
+                        log.warn("Категория \"{}\" не найдена для региона \"{}\" — пропуск строки",
+                                categoryName, region.getName());
                         continue;
                     }
-
+                    Categories categories = catOpt.get();
                     Cell productNameCell = row.getCell(1);
                     if(productNameCell == null){
                         continue;
@@ -117,10 +116,10 @@ public class ExcelImportService {
                                 chemical_composition.setQuantity(parsed[0]);
                                 chemical_composition.setError(parsed[1]);
                             } else {
-                                System.out.println("Не удалось получить корректное значение для хим. состава, продукт: " + productName);
+                                log.warn("Не удалось получить корректное значение для хим. состава, продукт: " + productName);
                             }
                         }catch (NumberFormatException e){
-                            System.out.println("Не удалось преобразовать \"" + cellValue + "\" в число (хим. состав), продукт: " + productName);
+                            log.warn("Не удалось преобразовать \"" + cellValue + "\" в число (хим. состав), продукт: " + productName);
                         }
 
                         chemical_composition.setProduct(product);
@@ -150,11 +149,11 @@ public class ExcelImportService {
                                 aminoAcidComposition.setQuantity(parsed[0]);
                                 aminoAcidComposition.setError(parsed[1]);
                             } else {
-                                System.out.println("Не удалось получить корректное значение для аминокислотного состава, " +
+                                log.warn("Не удалось получить корректное значение для аминокислотного состава, " +
                                         "продукт: " + productName);
                             }
                         }catch (NumberFormatException e){
-                            System.out.println("Не удалось преобразовать \"" + cellValue + "\" в число (аминокислотный состав), продукт: " + productName);
+                            log.warn("Не удалось преобразовать \"" + cellValue + "\" в число (аминокислотный состав), продукт: " + productName);
                         }
 
                         aminoAcidComposition.setProduct(product);
@@ -179,7 +178,7 @@ public class ExcelImportService {
                             Mineral mineralName = Mineral.valueOf(meneralNameStr);
                             mineralComposition.setMineral_name(mineralName);
                         }catch (Exception e){
-                            System.out.println("Минерал \"" + meneralNameStr + "\" не найден в enum Mineral, пропускаем.");
+                            log.warn("Минерал \"" + meneralNameStr + "\" не найден в enum Mineral, пропускаем.");
                         }
 
                         try{
@@ -188,10 +187,10 @@ public class ExcelImportService {
                                 mineralComposition.setQuantity(parsed[0]);
                                 mineralComposition.setError(parsed[1]);
                             } else {
-                                System.out.println("Не удалось получить корректное значение для минерального состава, продукт: " + productName);
+                                log.warn("Не удалось получить корректное значение для минерального состава, продукт: " + productName);
                             }
                         }catch (NumberFormatException e){
-                            System.out.println("Не удалось преобразовать \"" + cellValue + "\" в число (минеральный состав), продукт: " + productName);
+                            log.warn("Не удалось преобразовать \"" + cellValue + "\" в число (минеральный состав), продукт: " + productName);
                         }
 
                         mineralComposition.setProduct(product);
@@ -223,12 +222,12 @@ public class ExcelImportService {
                                 fattyAcidComposition.setQuantity(parsed[0]);
                                 fattyAcidComposition.setError(parsed[1]);
                             } else {
-                                System.out.println("Не удалось получить корректное значение для жирнокислотного состава, " +
+                                log.warn("Не удалось получить корректное значение для жирнокислотного состава, " +
                                         "продукт: " + productName);
                             }
 
                         }catch (NumberFormatException e){
-                            System.out.println("Не удалось преобразовать \"" + cellValue + "\" в число (жирнокислотный состав), продукт: " + productName);
+                            log.warn("Не удалось преобразовать \"" + cellValue + "\" в число (жирнокислотный состав), продукт: " + productName);
                         }
 
                         fattyAcidComposition.setProduct(product);

@@ -14,7 +14,7 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -28,3 +28,10 @@ springdoc:
     enabled: true
   swagger-ui:
     path: /swagger-ui/index.html
+
+logging:
+  file:
+    name: logs/app.log
+  level:
+    org.hibernate.SQL: off
+    org.hibernate.type.descriptor.sql: OFF

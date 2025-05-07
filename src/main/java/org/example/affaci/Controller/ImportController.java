@@ -19,10 +19,10 @@ public class ImportController {
 
 
 
-    @GetMapping("")
-    public ResponseEntity<?> importExcel(@RequestParam("filePath") String filePath) {
+    @PostMapping(path = "/export_Old/excel", consumes = "multipart/form-data")
+    public ResponseEntity<?> importExcel(@RequestParam("file") MultipartFile file) {
         try{
-            excelImportService.importExcel(filePath);
+            excelImportService.importExcel(file);
             return ResponseEntity.ok("Import successful");
         }catch (Exception e){
             e.printStackTrace();
