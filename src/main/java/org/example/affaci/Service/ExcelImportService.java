@@ -279,7 +279,7 @@ public class ExcelImportService {
 
     //Импорт национального продукта
     @Transactional
-    public void importExcelFinal(MultipartFile file) throws Exception {
+    public void importExcelNationalFood(MultipartFile file) throws Exception {
         try(InputStream is = file.getInputStream();
             Workbook wb = new XSSFWorkbook(is);){
 
@@ -402,5 +402,110 @@ public class ExcelImportService {
                 .filter(m -> m.getName().equalsIgnoreCase(name.trim()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Минерал не найден в Enum: " + name));
+    }
+
+
+
+    private static final int HEADER_ROW_COUNT2 = 6;
+    private static final int CHEM_START_COL2 = 4; // E
+    private static final int CHEM_END_COL2   = 9; // J
+    private static final int MIN_START_COL2  = 10; // K
+    private static final int MIN_END_COL2    = 14; // О
+
+
+
+    //Импорт национального продукта
+    @Transactional
+    public void importExcelFinal(MultipartFile file) throws Exception {
+        try(InputStream is = file.getInputStream();
+            Workbook wb = new XSSFWorkbook(is);){
+
+
+            //Считываем загаловки химии/минералов ровно один раз (из первого листа)
+            Sheet firstSheet = wb.getSheetAt(0);
+            Row nameRow = firstSheet.getRow(2);
+            Row unitRow = firstSheet.getRow(3);
+            List<String> chemNames = readRowCells(nameRow, CHEM_START_COL2, CHEM_END_COL2);
+            List<String> chemUnits = readRowCells(unitRow, CHEM_START_COL2, CHEM_END_COL2);
+            List<String> minNames  = readRowCells(nameRow, MIN_START_COL2, MIN_END_COL2);
+            List<String> minUnits  = readRowCells(unitRow, MIN_START_COL2, MIN_END_COL2);
+
+
+            //Перебираем все листы - каждый лист соответствует новому региону
+            for(Sheet sheet : wb){
+                String sheetName = sheet.getSheetName().trim();
+                Regions region =
+                        regionsRepository.findByNameIgnoreCase(sheetName).orElseThrow(() -> new IllegalArgumentException(
+                                "Региона не найден" + sheetName));
+                /*if (region == null) {
+                    System.out.println("Region " + sheetName + " not found");
+                    continue;
+                }*/
+                //Обход строк с данными начиная с 7-й
+                for(int r = HEADER_ROW_COUNT2; r<= sheet.getLastRowNum(); r++){
+                    Row row = sheet.getRow(r);
+                    if(row == null || row.getCell(2) == null) continue;
+
+                    // --- категория точно так же ищем через categoryRepository ---
+                    String excelCat = row.getCell(1).getStringCellValue().trim();
+                    String dbCatName = mapCategoryName(excelCat);
+                    Categories categories =
+                            categoriesRepository.findByNameAndRegion(dbCatName, region).orElseThrow(() -> new IllegalArgumentException("Категория не найдена " + dbCatName + " Для региона " + region.getName()));
+                    /*if(categories == null){
+                        System.out.println("Category " + dbCatName + " not found");
+                        continue;
+                    }*/
+
+                    // --- создаём продукт и устанавливаем регион из имени листа ---
+                    Products product = new Products();
+                    product.setName(row.getCell(2).getStringCellValue().trim());
+                    product.setCategories(categories);
+                    product.setRegion(region);
+                    product.setNational(false);
+
+
+                    //Химический состав
+                    for(int i = 0; i < chemNames.size(); i++){
+                        Cell cell = row.getCell(CHEM_START_COL2 + i);
+                        if(cell != null && cell.getCellType() == CellType.NUMERIC){
+                            Chemical_composition chem = new Chemical_composition();
+                            chem.setProduct(product);
+                            chem.setCompound_name(chemNames.get(i));
+                            chem.setQuantity(cell.getNumericCellValue());
+                            chem.setUnit(Unit.valueOf(chemUnits.get(i)));
+                            product.getChemicalCompositions().add(chem);
+                        }
+                    }
+
+                    //---------Минеральный состав ------
+                    for(int i = 0; i < minNames.size(); i++){
+                        Cell cell = row.getCell(MIN_START_COL2 + i);
+                        if(cell != null && cell.getCellType() == CellType.NUMERIC){
+                            String nameMin = minNames.get(i);
+                            Mineral enumMin = findMineralByName(nameMin);
+
+                            Mineral_composition mineral = new Mineral_composition();
+                            mineral.setProduct(product);
+                            mineral.setMineral_name(enumMin);
+                            mineral.setQuantity(cell.getNumericCellValue());
+                            mineral.setUnit(Unit.valueOf(minUnits.get(i)));
+                            product.getMineralCompositions().add(mineral);
+                        }
+                    }
+
+                    //-----Сохраняем продукт и перевод
+
+                    productsRepository.save(product);
+
+                    String kgName = row.getCell(3).getStringCellValue().trim();
+                    Products_translate tr = new Products_translate();
+                    tr.setProducts(product);
+                    tr.setLanguage(Language.KG);
+                    tr.setProduct_name(kgName);
+                    productTranslateRepo.save(tr);
+                }
+            }
+        }
+
     }
 }
