@@ -11,22 +11,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. исходники
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # 2. JDK
     - name: Set up Temurin 17
       uses: actions/setup-java@v3
       with:
         distribution: temurin
         java-version: 17
 
-    # 3. сборка JAR‑файла
     - name: Build with Maven
       run: mvn -B clean package -DskipTests
 
-    # 4. подготовка SSH‑окружения
     - name: Prepare SSH
       run: |
         mkdir -p ~/.ssh
@@ -39,7 +35,6 @@ jobs:
         eval "$(ssh-agent -s)"
         ssh-add ~/.ssh/id_rsa
 
-    # 5. копируем JAR
     - name: Copy JAR to server
       run: |
         JAR=target/Affaci-0.0.1-SNAPSHOT.jar
@@ -48,7 +43,6 @@ jobs:
                 -o UserKnownHostsFile=/dev/null \
                 "$JAR" ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:/home/bekzhan/backend/
 
-    # 6. перезапускаем сервис
     - name: Restart backend.service
       run: |
         ssh -o StrictHostKeyChecking=no \
