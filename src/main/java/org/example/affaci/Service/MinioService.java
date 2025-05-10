@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 
@@ -36,14 +37,15 @@ public class MinioService {
 
     public String getObjectUrl(String objectName) {
         try {
-            return minioClient.getPresignedObjectUrl(
+            String pictureUrl = minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .bucket(bucket)
                             .object(objectName)
                             .method(Method.GET)
                             .expiry(1, TimeUnit.HOURS)
-                            .build()
-            );
+                            .extraQueryParams(Map.of("response-content-type", "image/jpeg"))
+                            .build());
+            return pictureUrl.replace("https://aafaci.com:9000", "https://aafaci.com/minio");
         } catch (ErrorResponseException |
                  InsufficientDataException |
                  InternalException |
