@@ -45,7 +45,7 @@ public class MinioService {
                             .expiry(1, TimeUnit.HOURS)
                             .extraQueryParams(Map.of("response-content-type", "image/jpeg"))
                             .build());
-            return pictureUrl.replace("http://aafaci.com:9000", "https://aafaci.com/minio");
+            return pictureUrl;
         } catch (ErrorResponseException |
                  InsufficientDataException |
                  InternalException |
