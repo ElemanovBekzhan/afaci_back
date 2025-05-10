@@ -23,7 +23,7 @@ public class Products_translate {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
-    Products products;
+    Products product;
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     Language language;

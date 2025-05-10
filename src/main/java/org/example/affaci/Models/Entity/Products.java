@@ -57,6 +57,12 @@ public class Products {
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     List<Fatty_acid_composition> fattyAcidCompositions = new ArrayList<>();
 
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    List<photo> photos = new ArrayList<>();
+
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    List<Products_translate> translates = new ArrayList<>();
+
     @PrePersist
     protected void onCreate() {
         created_at = new Timestamp(System.currentTimeMillis());

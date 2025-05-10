@@ -22,7 +22,7 @@ public interface ProductsRepository
         JpaSpecificationExecutor<Products> {
 
 
-
+    void deleteAllByNationalTrue();
 
     List<Products> findByNameContainingIgnoreCase(String name);
 

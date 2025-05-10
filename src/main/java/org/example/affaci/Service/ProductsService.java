@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.affaci.Models.DTO.DetailProductResponseDTO;
 import org.example.affaci.Models.DTO.Mapper.ProductDetailsMapper;
 import org.example.affaci.Models.DTO.Mapper.ProductsMapper;
+import org.example.affaci.Models.DTO.ProductResponseDTO;
 import org.example.affaci.Models.DTO.ProductsDTO;
 import org.example.affaci.Models.Entity.Categories;
 import org.example.affaci.Models.Entity.Products;
@@ -21,6 +22,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +31,7 @@ public class ProductsService {
     private final ProductsRepository productsRepository;
     private final ProductsMapper productsMapper;
     private final ProductDetailsMapper productDetailsMapper;
-
+    private final MinioService minioService;
 
 
 
@@ -51,16 +53,36 @@ public class ProductsService {
     }
 
 
-    public List<ProductsDTO> getNatioanlProducts(){
+    public List<ProductResponseDTO> getNatioanlProducts(){
         List<Products> products = productsRepository.findAllByNationalIsTrue();
         if(products.isEmpty()){
             throw new EntityNotFoundException("Националные продукты не найдены");
         }
-        List<ProductsDTO> dto = productsMapper.toDtoProducts(products);
-        return dto;
+
+        return products.stream()
+                .map(p -> {
+                    ProductResponseDTO dto = new ProductResponseDTO();
+                    dto.setId(p.getId());
+                    dto.setName(p.getName());
+                    dto.setCategories(p.getCategories().getName());
+                    dto.setDatе(p.getCreated_at());
+                    dto.setRegion(p.getRegion().getName());
+
+                    List<String> urls = p.getPhotos().stream()
+                            .map(photo -> minioService.getObjectUrl(photo.getFilename()))
+                            .collect(Collectors.toList());
+                    dto.setPhotoUrls(urls);
+                    return dto;
+                }).collect(Collectors.toList());
+
     }
 
 
+
+    @Transactional
+    public void deleteAllNationalProducts() {
+        productsRepository.deleteAllByNationalTrue();
+    }
 
     public Page<ProductsDTO> findFiltered(String search, String category, String region, Pageable pageable) {
 

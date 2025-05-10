@@ -4,23 +4,27 @@ package org.example.affaci.Service;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.example.affaci.Models.Entity.*;
 import org.example.affaci.Models.Enum.Language;
 import org.example.affaci.Models.Enum.Mineral;
 import org.example.affaci.Models.Enum.Unit;
-import org.example.affaci.Repo.CategoriesRepository;
-import org.example.affaci.Repo.ProductTranslateRepo;
-import org.example.affaci.Repo.ProductsRepository;
-import org.example.affaci.Repo.RegionsRepository;
+import org.example.affaci.Repo.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.FileSystemUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.*;
 import java.util.*;
+import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 
 @Slf4j
@@ -32,8 +36,8 @@ public class ExcelImportService {
     private final RegionsRepository regionsRepository;
     private final CategoriesRepository categoriesRepository;
     private final ProductTranslateRepo productTranslateRepo;
-
-
+    private final photoRepository photoRepository;
+    private final MinioService minioService;
 
 
     @Transactional
@@ -274,12 +278,35 @@ public class ExcelImportService {
     private static final int CHEM_END_COL   = 9; // J
     private static final int MIN_START_COL  = 10; // K
     private static final int MIN_END_COL    = 28; // AC
+    private static final int PHOTO_NAME_COL = 29; // AD
+
 
 
 
     //Импорт национального продукта
     @Transactional
-    public void importExcelNationalFood(MultipartFile file) throws Exception {
+    public void importExcelNationalFood(MultipartFile file,
+                                        MultipartFile photosZip) throws Exception {
+
+        // Распаковка ZIP
+        Path tmpDir = Files.createTempDirectory("import-photos-");
+        try(ZipInputStream zis = new ZipInputStream(photosZip.getInputStream())){
+            ZipEntry ze;
+            while((ze = zis.getNextEntry()) != null){
+                Path out = tmpDir.resolve(ze.getName());
+                if(ze.isDirectory()){
+                    Files.createDirectories(out);
+                }else{
+                    Files.createDirectories(out.getParent());
+                    Files.copy(zis, out, StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
+        }
+
+
+
+        //Читаем Excel
+
         try(InputStream is = file.getInputStream();
             Workbook wb = new XSSFWorkbook(is);){
 
@@ -288,6 +315,8 @@ public class ExcelImportService {
             Sheet firstSheet = wb.getSheetAt(0);
             Row nameRow = firstSheet.getRow(2);
             Row unitRow = firstSheet.getRow(3);
+
+
             List<String> chemNames = readRowCells(nameRow, CHEM_START_COL, CHEM_END_COL);
             List<String> chemUnits = readRowCells(unitRow, CHEM_START_COL, CHEM_END_COL);
             List<String> minNames  = readRowCells(nameRow, MIN_START_COL, MIN_END_COL);
@@ -356,20 +385,109 @@ public class ExcelImportService {
                         }
                     }
 
-                    //-----Сохраняем продукт и перевод
 
+
+
+
+                    //имя фото
+                    Cell photoCell = row.getCell(PHOTO_NAME_COL);
+                    if (photoCell != null) {
+                        String allNames = photoCell.getStringCellValue().trim();
+                        if (!allNames.isEmpty()) {
+                            // разбиваем по ; или ,
+                            String[] rawNames = allNames.split("\\s*[;,]\\s*");
+                            for (String rawName : rawNames) {
+                                Path photoPath = resolvePhoto(tmpDir, rawName);
+                                if (photoPath != null) {
+                                    String uploadedName = minioService.uploadPhoto(photoPath);
+
+                                    photo photo = new photo();
+                                    photo.setFilename(uploadedName);
+                                    photo.setProduct(product);
+                                    product.getPhotos().add(photo);
+                                    log.info("✅ Фотo найдено: " + photoPath);
+                                } else {
+                                    log.warn("🔥 Фото не найдено: " + rawName);
+                                }
+                            }
+                        }
+                    }
+                    /*if(photoCell!=null){
+                        String photoName = photoCell.getStringCellValue().trim();
+                        Path photoPath;
+                        if(photoName .contains(".")) {
+                            photoPath = tmpDir.resolve(photoName);
+                        }else {
+                            photoPath = findPhotoFile(tmpDir, photoName);
+                        }
+
+                        if(Files.exists(photoPath)){
+                            photo photo = new photo();
+                            photo.setFilename(photoName);
+                            photo.setProduct(product);
+                            product.getPhotos().add(photo);
+                        }else{
+                            System.out.println("Фото не найдено: "+photoName);
+                        }
+                    }*/
+
+                    //-----Сохраняем продукт и перевод
                     productsRepository.save(product);
 
+
+                    //Название на англ
                     String kgName = row.getCell(3).getStringCellValue().trim();
                     Products_translate tr = new Products_translate();
-                    tr.setProducts(product);
+                    tr.setProduct(product);
                     tr.setLanguage(Language.EN);
                     tr.setProduct_name(kgName);
                     productTranslateRepo.save(tr);
                 }
             }
+        }finally {
+            FileSystemUtils.deleteRecursively(tmpDir);
         }
 
+    }
+
+    /**
+     * Ищет файл с именем rawName (с учётом расширения или без)
+     * в любом месте внутри tmpDir.
+     */
+    private Path resolvePhoto(Path tmpDir, String rawName) throws IOException {
+        boolean hasExt = rawName.contains(".");
+        try (Stream<Path> stream = Files.walk(tmpDir)) {
+            Optional<Path> found = stream
+                    .filter(Files::isRegularFile)
+                    .filter(p -> {
+                        String fn = p.getFileName().toString();
+                        if (hasExt) {
+                            // ищем точное совпадение имени, игнорируя регистр
+                            return fn.equalsIgnoreCase(rawName);
+                        } else {
+                            // ищем любую версию rawName.* (jpg/png/...),
+                            // игнорируя регистр
+                            return fn.toLowerCase().startsWith(rawName.toLowerCase() + ".");
+                        }
+                    })
+                    .findFirst();
+            return found.orElse(null);
+        }
+    }
+
+
+
+    //Поиск фото, если оно без расширения в Excel
+    private Path findPhotoFile(Path dir, String baseName) throws IOException {
+        try(DirectoryStream<Path> ds = Files.newDirectoryStream(dir, baseName + ".")){
+            for(Path p : ds){
+                String ext = FilenameUtils.getExtension(p.getFileName().toString().toLowerCase());
+                if(List.of("png", "jpg", "jpeg").contains(ext)){
+                    return p;
+                }
+            }
+        }
+        return null;
     }
 
     // Вспомогательный метод для считывания строк ячеек в List<String>
@@ -499,7 +617,7 @@ public class ExcelImportService {
 
                     String kgName = row.getCell(3).getStringCellValue().trim();
                     Products_translate tr = new Products_translate();
-                    tr.setProducts(product);
+                    tr.setProduct(product);
                     tr.setLanguage(Language.KG);
                     tr.setProduct_name(kgName);
                     productTranslateRepo.save(tr);

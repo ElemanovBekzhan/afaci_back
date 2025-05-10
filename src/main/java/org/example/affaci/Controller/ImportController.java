@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.affaci.Service.ExcelImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,8 +34,12 @@ public class ImportController {
     }
 
 
-    @PostMapping(value = "/national", consumes = "multipart/form-data")
-    public ResponseEntity<String> saveVersion2(@RequestParam("file") MultipartFile file) {
+    @PostMapping(
+            value = "/national",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<String> saveVersion2(
+            @RequestPart("file") MultipartFile file,
+            @RequestPart("photos") MultipartFile photosZip) {
         if(file.isEmpty()){
             return ResponseEntity
                     .status(HttpStatus.BAD_REQUEST)
@@ -42,16 +47,16 @@ public class ImportController {
         }
 
         String filename = file.getOriginalFilename();
-        if(filename == null || !filename.toLowerCase().endsWith(".xlsx")){
+        String photoFile = photosZip.getOriginalFilename();
+        if(filename == null || !filename.toLowerCase().endsWith(".xlsx") || !photoFile.toLowerCase().endsWith(".zip") || photoFile == null){
             return ResponseEntity
-                    .status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
-                    .body("Только .xlsx файлы поддерживаются");
+                    .status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(HttpStatus.BAD_REQUEST.getReasonPhrase());
         }
 
         try {
-            excelImportService.importExcelNationalFood(file);
+            excelImportService.importExcelNationalFood(file, photosZip);
             return ResponseEntity
-                    .ok("Импорт успешно выполнен для файла: " + filename);
+                    .ok("Импорт успешно выполнен для файла: " + filename + " , " + photoFile);
         } catch (IllegalArgumentException iae) {
             // например, минерал или категория не найдены
             return ResponseEntity

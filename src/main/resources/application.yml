@@ -1,7 +1,10 @@
 spring:
   application:
     name: Affaci
-
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
 
 
   datasource:
@@ -35,3 +38,11 @@ logging:
   level:
     org.hibernate.SQL: off
     org.hibernate.type.descriptor.sql: OFF
+
+
+minio:
+  url: ${MINIO_URL}
+  access-key: ${MINIO_ACCESS_KEY}
+  secret-key: ${MINIO_SECRET_KEY}
+  bucket: products
+
