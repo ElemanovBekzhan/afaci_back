@@ -12,6 +12,7 @@ import io.minio.MinioClient;
 import io.minio.http.Method;
 
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Path;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -45,7 +46,18 @@ public class MinioService {
                             .expiry(1, TimeUnit.HOURS)
                             .extraQueryParams(Map.of("response-content-type", "image/jpeg"))
                             .build());
-            return pictureUrl;
+
+            // internalUrl == http://127.0.0.1:9000/products/Kattama.png?...
+
+            URL url = new URL(pictureUrl);
+            String publicPath = "/minio/" + url.getPath();
+            String publicUrl = new URL(
+                    "https",
+                    "aafaci.com",
+                    url.getPort()>0?-1:-1,
+                    publicPath+"?"+url.getQuery()
+            ).toString();
+            return publicUrl;
         } catch (ErrorResponseException |
                  InsufficientDataException |
                  InternalException |
