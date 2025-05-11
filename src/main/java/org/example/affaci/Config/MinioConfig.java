@@ -39,7 +39,6 @@ public class MinioConfig {
                 .credentials(accessKey, secretKey)
                 .region("us-east-1")
                 .build();
-
     }
 
 
