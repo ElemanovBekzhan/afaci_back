@@ -38,7 +38,7 @@ public class MinioService {
 
     public String getObjectUrl(String objectName) {
         try {
-            String pictureUrl = minioClient.getPresignedObjectUrl(
+            return minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .bucket(bucket)
                             .object(objectName)
@@ -49,7 +49,7 @@ public class MinioService {
 
             // internalUrl == http://127.0.0.1:9000/products/Kattama.png?...
 
-            URL url = new URL(pictureUrl);
+            /*URL url = new URL(pictureUrl);
             String publicPath = "/minio/" + url.getPath();
             String publicUrl = new URL(
                     "https",
@@ -57,7 +57,7 @@ public class MinioService {
                     url.getPort()>0?-1:-1,
                     publicPath+"?"+url.getQuery()
             ).toString();
-            return publicUrl;
+            return publicUrl;*/
         } catch (ErrorResponseException |
                  InsufficientDataException |
                  InternalException |

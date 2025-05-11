@@ -35,9 +35,8 @@ public class MinioConfig {
     @Bean
     public MinioClient minioClient() {
         return MinioClient.builder()
-                .endpoint(minioUrl)
+                .endpoint("https://aafaci.com:9000")
                 .credentials(accessKey, secretKey)
-                .region("us-east-1")
                 .build();
     }
 
