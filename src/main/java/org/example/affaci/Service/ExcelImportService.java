@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.FileSystemUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.FileInputStream;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.*;
@@ -36,7 +36,6 @@ public class ExcelImportService {
     private final RegionsRepository regionsRepository;
     private final CategoriesRepository categoriesRepository;
     private final ProductTranslateRepo productTranslateRepo;
-    private final photoRepository photoRepository;
     private final MinioService minioService;
 
 

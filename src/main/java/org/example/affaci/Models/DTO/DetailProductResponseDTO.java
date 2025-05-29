@@ -3,6 +3,7 @@ package org.example.affaci.Models.DTO;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.example.affaci.Models.Enum.Unit;
 
 import java.util.List;
 import java.util.UUID;
@@ -32,6 +33,7 @@ public class DetailProductResponseDTO {
         private String compoundName;
         private String compoundCategory;
         private Double quantity;
+        Unit unit;
     }
     @AllArgsConstructor
     @NoArgsConstructor
@@ -42,6 +44,7 @@ public class DetailProductResponseDTO {
         private UUID id;
         private String mineral;
         private Double quantity;
+        Unit unit;
     }
 
 

@@ -40,10 +40,11 @@ public class ProductsController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required=false)      String search,
             @RequestParam(required=false)      String category,
-            @RequestParam(required=false)      String region
+            @RequestParam(required=false)      String region,
+            @RequestParam(defaultValue = "ru") String lng
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
-        Page<ProductsDTO> result = productsService.findFiltered(search, category, region, pageable);
+        Page<ProductsDTO> result = productsService.findFiltered(search, category, region, pageable, lng);
         return ResponseEntity.ok(result);
     }
 

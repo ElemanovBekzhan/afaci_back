@@ -84,20 +84,11 @@ public class ProductsService {
         productsRepository.deleteAllByNationalTrue();
     }
 
-    public Page<ProductsDTO> findFiltered(String search, String category, String region, Pageable pageable) {
+    public Page<ProductsDTO> findFiltered(String search, String category, String region, Pageable pageable, String lng) {
 
 
         Specification<Products> spec = Specification.where(null);
 
-        /*// Поиск по начальным буквам имени
-        if (StringUtils.hasText(search)) {
-            spec = spec.and((root, query, cb) ->
-                    cb.like(
-                            cb.lower(root.get("name")),
-                            search.toLowerCase() + "%"
-                    )
-            );
-        }*/
         if (StringUtils.hasText(search)) {
             spec = spec.and((root, query, cb) ->
                     cb.like(

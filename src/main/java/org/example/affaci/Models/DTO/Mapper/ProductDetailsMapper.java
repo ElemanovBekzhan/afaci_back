@@ -43,6 +43,7 @@ public class ProductDetailsMapper {
         dto.setCompoundName(chem.getCompound_name());
         dto.setCompoundCategory(chem.getCompound_category());
         dto.setQuantity(chem.getQuantity());
+        dto.setUnit(chem.getUnit());
         return dto;
     }
 
@@ -51,6 +52,7 @@ public class ProductDetailsMapper {
         dto.setId(m.getId());
         dto.setMineral(m.getMineral_name().getName());
         dto.setQuantity(m.getQuantity());
+        dto.setUnit(m.getUnit());
         return dto;
     }
 }
