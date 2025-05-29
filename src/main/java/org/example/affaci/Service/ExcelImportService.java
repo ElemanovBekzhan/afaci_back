@@ -532,7 +532,7 @@ public class ExcelImportService {
 
 
 
-    //Импорт национального продукта
+
     @Transactional
     public void importExcelFinal(MultipartFile file) throws Exception {
         try(InputStream is = file.getInputStream();
@@ -625,5 +625,64 @@ public class ExcelImportService {
             }
         }
 
+    }
+
+
+    private static final int HEADER = 1;
+
+    @Transactional
+    public void importExcelOld_English(MultipartFile file) throws Exception{
+        try (Workbook wb = new XSSFWorkbook(file.getInputStream())) {
+            for (Sheet sheet : wb) {
+                String regionName = sheet.getSheetName().trim();
+                Regions region = regionsRepository
+                        .findByNameIgnoreCase(regionName)
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Регион не найден: " + regionName));
+
+                for (int r = HEADER; r <= sheet.getLastRowNum(); r++) {
+                    Row row = sheet.getRow(r);
+                    if (row == null) continue;
+
+                    //читаем категорию и находим её в БД
+                    Cell catCell = row.getCell(0);
+                    if (catCell == null || catCell.getCellType() != CellType.STRING) continue;
+                    String catName = catCell.getStringCellValue().trim();
+                    Categories category = categoriesRepository
+                            .findByNameAndRegion(catName, region)
+                            .orElseThrow(() -> new IllegalArgumentException(
+                                    "Категория не найдена: " + catName + " в регионе " + regionName));
+
+                    //читаем русское название продукта и ищем сам продукт
+                    Cell rusCell = row.getCell(1);
+                    if (rusCell == null || rusCell.getCellType() != CellType.STRING) continue;
+                    String rusName = rusCell.getStringCellValue().trim();
+                    Products product = productsRepository
+                            .findFirstByNameAndRegionAndCategories(rusName, region, category)
+                            .orElseThrow(() -> new IllegalArgumentException(
+                                    "Продукт не найден: " + rusName +
+                                            " (категория: " + catName + ", регион: " + regionName + ")"));
+
+                    //читаем английское название и описание (если есть)
+                    String engName = "";
+                    Cell engCell = row.getCell(2);
+                    if (engCell != null && engCell.getCellType() == CellType.STRING) {
+                        engName = engCell.getStringCellValue().trim();
+                    }
+                    boolean exists = productTranslateRepo
+                            .existsByProductIdAndLanguage(product.getId(), Language.EN);
+                    if (exists) {
+                        continue;
+                    }
+
+                    // --- создаём перевод ---
+                    Products_translate tr = new Products_translate();
+                    tr.setProduct(product);
+                    tr.setLanguage(Language.EN);
+                    tr.setProduct_name(engName);
+                    productTranslateRepo.save(tr);
+                }
+            }
+        }
     }
 }

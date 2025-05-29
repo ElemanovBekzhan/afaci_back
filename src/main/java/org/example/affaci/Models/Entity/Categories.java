@@ -6,6 +6,8 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.UuidGenerator;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -25,4 +27,10 @@ public class Categories {
     @ManyToOne
     @JoinColumn(name = "regions_id")
     Regions region;
+
+
+
+
+
+
 }

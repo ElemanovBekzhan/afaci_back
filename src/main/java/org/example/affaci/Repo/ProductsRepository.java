@@ -1,8 +1,10 @@
 package org.example.affaci.Repo;
 
 
+import org.example.affaci.Models.Entity.Categories;
 import org.example.affaci.Models.Entity.Products;
 
+import org.example.affaci.Models.Entity.Regions;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -47,4 +49,5 @@ public interface ProductsRepository
     long countByNationalTrue();
 
 
+    Optional<Products> findFirstByNameAndRegionAndCategories(String rusName, Regions region, Categories category);
 }
