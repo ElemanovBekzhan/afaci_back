@@ -27,8 +27,8 @@ public class MinioConfig {
     @Bean
     public MinioClient minioClient() {
         return MinioClient.builder()
-//                .endpoint("https://aafaci.com:9000")
-                .endpoint("http://localhost:9000")
+                .endpoint("https://aafaci.com:9000")
+//                .endpoint("http://localhost:9000")
                 .credentials(accessKey, secretKey)
                 .build();
     }
