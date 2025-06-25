@@ -60,8 +60,8 @@ public class Products {
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     List<photo> photos = new ArrayList<>();
 
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
-    List<Products_translate> translates = new ArrayList<>();
+    @OneToMany(mappedBy = "product", fetch = FetchType.LAZY)
+    List<Products_translate> translates;
 
     @PrePersist
     protected void onCreate() {

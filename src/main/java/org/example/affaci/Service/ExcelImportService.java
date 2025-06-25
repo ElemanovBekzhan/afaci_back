@@ -684,4 +684,140 @@ public class ExcelImportService {
             }
         }
     }
+
+
+
+    //Проверка базы
+    @Transactional
+    public void updateMissingFromExcel(MultipartFile file) throws Exception {
+        try (InputStream is = file.getInputStream(); Workbook wb = new XSSFWorkbook(is)) {
+
+            Sheet firstSheet = wb.getSheetAt(0);
+            Row nameRow = firstSheet.getRow(2);
+            Row unitRow = firstSheet.getRow(3);
+            List<String> chemNames = readRowCells(nameRow, CHEM_START_COL2, CHEM_END_COL2);
+            List<String> chemUnits = readRowCells(unitRow, CHEM_START_COL2, CHEM_END_COL2);
+            List<String> minNames  = readRowCells(nameRow, MIN_START_COL2, MIN_END_COL2);
+            List<String> minUnits  = readRowCells(unitRow, MIN_START_COL2, MIN_END_COL2);
+
+            for (Sheet sheet : wb) {
+                String sheetName = sheet.getSheetName().trim();
+                Regions region = regionsRepository.findByNameIgnoreCase(sheetName)
+                        .orElseThrow(() -> new IllegalArgumentException("Регион не найден: " + sheetName));
+
+                for (int r = HEADER_ROW_COUNT2; r <= sheet.getLastRowNum(); r++) {
+                    Row row = sheet.getRow(r);
+                    if (row == null || row.getCell(2) == null) continue;
+
+                    String excelCat = row.getCell(1).getStringCellValue().trim();
+                    String dbCatName = mapCategoryName(excelCat);
+                    Categories category = categoriesRepository.findByNameAndRegion(dbCatName, region)
+                            .orElseThrow(() -> new IllegalArgumentException("Категория не найдена: " + dbCatName));
+
+                    String productName = row.getCell(2).getStringCellValue().trim();
+                    Optional<Products> optionalProduct =
+                            productsRepository.findByNameAndRegionAndCategories(productName, region, category);
+
+                    Products product = optionalProduct.orElseGet(() -> {
+                        Products p = new Products();
+                        p.setName(productName);
+                        p.setRegion(region);
+                        p.setCategories(category);
+                        p.setNational(false);
+                        return p;
+                    });
+
+                    // Обновляем или добавляем химсостав
+                    for (int i = 0; i < chemNames.size(); i++) {
+                        Cell cell = row.getCell(CHEM_START_COL2 + i);
+                        if (cell != null && cell.getCellType() == CellType.NUMERIC) {
+                            String compoundName = chemNames.get(i);
+                            boolean exists = product.getChemicalCompositions().stream()
+                                    .anyMatch(c -> c.getCompound_name().equalsIgnoreCase(compoundName));
+
+                            if (!exists) {
+                                Chemical_composition chem = new Chemical_composition();
+                                chem.setProduct(product);
+                                chem.setCompound_name(compoundName);
+                                chem.setQuantity(cell.getNumericCellValue());
+                                chem.setUnit(Unit.valueOf(chemUnits.get(i)));
+                                product.getChemicalCompositions().add(chem);
+                            }
+                        }
+                    }
+
+                    // Обновляем или добавляем минералы
+//                    for (int i = 0; i < minNames.size(); i++) {
+//                        Cell cell = row.getCell(MIN_START_COL2 + i);
+//                        if (cell != null && cell.getCellType() == CellType.NUMERIC) {
+//                            String minName = minNames.get(i);
+//                            Mineral mineralEnum = findMineralByName(minName);
+//                            boolean exists = product.getMineralCompositions().stream()
+//                                    .anyMatch(m -> m.getMineral_name() == mineralEnum);
+//
+//                            if (!exists) {
+//                                Mineral_composition mineral = new Mineral_composition();
+//                                mineral.setProduct(product);
+//                                mineral.setMineral_name(mineralEnum);
+//                                mineral.setQuantity(cell.getNumericCellValue());
+//                                mineral.setUnit(Unit.valueOf(minUnits.get(i)));
+//                                product.getMineralCompositions().add(mineral);
+//                            }
+//                        }
+//                    }
+                    FormulaEvaluator evaluator = wb.getCreationHelper().createFormulaEvaluator();
+
+                    for (int i = 0; i < chemNames.size(); i++) {
+                        Cell cell = row.getCell(CHEM_START_COL2 + i);
+                        if (cell != null) {
+                            double value = 0;
+                            boolean valid = false;
+
+                            if (cell.getCellType() == CellType.NUMERIC) {
+                                value = cell.getNumericCellValue();
+                                valid = true;
+                            } else if (cell.getCellType() == CellType.FORMULA) {
+                                CellValue evaluated = evaluator.evaluate(cell);
+                                if (evaluated != null && evaluated.getCellType() == CellType.NUMERIC) {
+                                    value = evaluated.getNumberValue();
+                                    valid = true;
+                                }
+                            }
+
+                            if (valid) {
+                                String compoundName = chemNames.get(i);
+                                boolean exists = product.getChemicalCompositions().stream()
+                                        .anyMatch(c -> c.getCompound_name().equalsIgnoreCase(compoundName));
+
+                                if (!exists) {
+                                    Chemical_composition chem = new Chemical_composition();
+                                    chem.setProduct(product);
+                                    chem.setCompound_name(compoundName);
+                                    chem.setQuantity(value);
+                                    chem.setUnit(Unit.valueOf(chemUnits.get(i)));
+                                    product.getChemicalCompositions().add(chem);
+                                }
+                            }
+                        }
+                    }
+
+
+                    productsRepository.save(product);
+
+                    // Если продукт новый — добавим перевод
+                    if (optionalProduct.isEmpty()) {
+                        String kgName = row.getCell(3).getStringCellValue().trim();
+                        Products_translate tr = new Products_translate();
+                        tr.setProduct(product);
+                        tr.setLanguage(Language.KG);
+                        tr.setProduct_name(kgName);
+                        productTranslateRepo.save(tr);
+                    }
+
+
+                }
+            }
+        }
+    }
+
 }

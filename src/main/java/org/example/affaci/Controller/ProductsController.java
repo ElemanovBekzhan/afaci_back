@@ -50,15 +50,16 @@ public class ProductsController {
 
 
     @GetMapping("/details/{id}")
-    public ResponseEntity<DetailProductResponseDTO> getProduct(@PathVariable UUID id) {
-        return ResponseEntity.ok(productsService.getProductById(id));
+    public ResponseEntity<DetailProductResponseDTO> getProduct(@PathVariable UUID id,
+                                                               @RequestParam(defaultValue = "ru")String lng) {
+        return ResponseEntity.ok(productsService.getProductById(id, lng));
     }
 
 
 
     @GetMapping("/national")
-    public ResponseEntity<?> getNatioanl(){
-        return ResponseEntity.ok(productsService.getNatioanlProducts());
+    public ResponseEntity<?> getNatioanl(@RequestParam(defaultValue = "ru")String lng){
+        return ResponseEntity.ok(productsService.getNatioanlProducts(lng));
     }
 
     @GetMapping("/getCategoryList")
@@ -74,23 +75,26 @@ public class ProductsController {
 
 
     @GetMapping("/search")
-    public List<ProductsDTO> searchProducts(@RequestParam String name){
+    public List<ProductsDTO> searchProducts(@RequestParam String name,
+                                            @RequestParam(defaultValue = "ru") String lng){
         return productsRepository.findByNameContainingIgnoreCase(name).stream()
-                .map(productsMapper::toDto)
+                .map(product -> productsMapper.toDto(product, lng))
                 .toList();
     }
 
     @GetMapping("/searchcategory")
-    public List<ProductsDTO> searchProductsByCategory(@RequestParam UUID id){
+    public List<ProductsDTO> searchProductsByCategory(@RequestParam UUID id,
+                                                      @RequestParam(defaultValue = "ru") String lng){
         return productsRepository.findAllByCategoriesId(id).stream()
-                .map(productsMapper::toDto)
+                .map(product -> productsMapper.toDto(product, lng))
                 .toList();
     }
 
     @GetMapping("/searchregion")
-    public List<ProductsDTO> searchProductsByRegion(@RequestParam UUID id){
+    public List<ProductsDTO> searchProductsByRegion(@RequestParam UUID id,
+                                                    @RequestParam(defaultValue = "ru") String lng){
         return productsRepository.findAllByRegionId(id).stream()
-                .map(productsMapper::toDto)
+                .map(product -> productsMapper.toDto(product, lng))
                 .toList();
     }
 

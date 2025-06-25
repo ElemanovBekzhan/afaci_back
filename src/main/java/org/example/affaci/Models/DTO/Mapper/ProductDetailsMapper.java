@@ -6,6 +6,7 @@ import org.example.affaci.Models.DTO.DetailProductResponseDTO;
 import org.example.affaci.Models.Entity.Chemical_composition;
 import org.example.affaci.Models.Entity.Mineral_composition;
 import org.example.affaci.Models.Entity.Products;
+import org.example.affaci.Models.Enum.Language;
 import org.example.affaci.Models.Enum.Mineral;
 import org.springframework.stereotype.Component;
 
@@ -15,10 +16,25 @@ import java.util.stream.Collectors;
 public class ProductDetailsMapper {
 
 
-    public DetailProductResponseDTO toDto(Products p) {
+    public DetailProductResponseDTO toDto(Products p, String lng) {
         DetailProductResponseDTO dto = new DetailProductResponseDTO();
         dto.setId(p.getId());
-        dto.setName(p.getName());
+//        dto.setName(p.getName());
+        if ("en".equalsIgnoreCase(lng)) {
+            if (p.getTranslates() != null) {
+                p.getTranslates().stream()
+                        .filter(t -> t.getLanguage() == Language.EN)
+                        .findFirst()
+                        .ifPresentOrElse(
+                                t -> dto.setName(t.getProduct_name()),
+                                () -> dto.setName(p.getName()) // fallback на оригинальное имя
+                        );
+            } else {
+                dto.setName(p.getName());
+            }
+        } else {
+            dto.setName(p.getName());
+        }
         dto.setRegionName(p.getRegion().getName());
         dto.setCategoryName(p.getCategories().getName());
 

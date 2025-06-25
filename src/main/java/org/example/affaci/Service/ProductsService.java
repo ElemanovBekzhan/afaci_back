@@ -11,7 +11,9 @@ import org.example.affaci.Models.DTO.ProductResponseDTO;
 import org.example.affaci.Models.DTO.ProductsDTO;
 import org.example.affaci.Models.Entity.Categories;
 import org.example.affaci.Models.Entity.Products;
+import org.example.affaci.Models.Entity.Products_translate;
 import org.example.affaci.Models.Entity.Regions;
+import org.example.affaci.Models.Enum.Language;
 import org.example.affaci.Repo.ProductsRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -37,23 +39,23 @@ public class ProductsService {
 
 
 
-    @Transactional(readOnly = true)
-    public Page<ProductsDTO> getProducts(Pageable pageable) {
-        return productsRepository
-                .findAll(pageable)
-                .map(productsMapper::toDto);
-    }
+//    @Transactional(readOnly = true)
+//    public Page<ProductsDTO> getProducts(Pageable pageable) {
+//        return productsRepository
+//                .findAll(pageable)
+//                .map(productsMapper::toDto);
+//    }
 
 
-    public DetailProductResponseDTO getProductById(UUID id) {
+    public DetailProductResponseDTO getProductById(UUID id, String lng) {
         Products products =
                 productsRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Продукт с ID: " + id + " не " +
                         "найден"));
-        return productDetailsMapper.toDto(products);
+        return productDetailsMapper.toDto(products, lng);
     }
 
 
-    public List<ProductResponseDTO> getNatioanlProducts(){
+    public List<ProductResponseDTO> getNatioanlProducts(String lng){
         List<Products> products = productsRepository.findAllByNationalIsTrue();
         if(products.isEmpty()){
             throw new EntityNotFoundException("Националные продукты не найдены");
@@ -63,7 +65,16 @@ public class ProductsService {
                 .map(p -> {
                     ProductResponseDTO dto = new ProductResponseDTO();
                     dto.setId(p.getId());
-                    dto.setName(p.getName());
+                    if ("en".equalsIgnoreCase(lng)) {
+                        String translatedName = p.getTranslates().stream()
+                                .filter(t -> t.getLanguage() == Language.EN)
+                                .map(Products_translate::getProduct_name)
+                                .findFirst()
+                                .orElse(p.getName()); // fallback
+                        dto.setName(translatedName);
+                    } else {
+                        dto.setName(p.getName());
+                    }
                     dto.setCategories(p.getCategories().getName());
                     dto.setDatе(p.getCreated_at());
                     dto.setRegion(p.getRegion().getName());
@@ -87,7 +98,15 @@ public class ProductsService {
     public Page<ProductsDTO> findFiltered(String search, String category, String region, Pageable pageable, String lng) {
 
 
+
+
+
+
         Specification<Products> spec = Specification.where(null);
+
+
+
+
 
         if (StringUtils.hasText(search)) {
             spec = spec.and((root, query, cb) ->
@@ -121,7 +140,7 @@ public class ProductsService {
         }
 
         return productsRepository.findAll(spec, pageable)
-                .map(productsMapper::toDto);
+                .map(product -> productsMapper.toDto(product, lng));
     }
 
 }

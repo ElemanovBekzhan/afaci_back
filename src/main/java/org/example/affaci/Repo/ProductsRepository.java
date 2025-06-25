@@ -50,4 +50,6 @@ public interface ProductsRepository
 
 
     Optional<Products> findFirstByNameAndRegionAndCategories(String rusName, Regions region, Categories category);
+
+    Optional<Products> findByNameAndRegionAndCategories(String productName, Regions region, Categories category);
 }
