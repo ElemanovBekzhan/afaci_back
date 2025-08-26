@@ -17,8 +17,7 @@ import java.util.UUID;
 @Setter
 public class Chemical_composition {
 
-    
-
+//dasd
     @Id
     @UuidGenerator
     UUID id;
